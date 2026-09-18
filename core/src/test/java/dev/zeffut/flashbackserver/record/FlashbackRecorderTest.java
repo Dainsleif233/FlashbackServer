@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.record;
 
+import dev.zeffut.flashbackserver.api.FlashbackAPI;
+import dev.zeffut.flashbackserver.api.ReplayCheckResult;
 import dev.zeffut.flashbackserver.format.FlashbackValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -35,9 +37,8 @@ class FlashbackRecorderTest {
     }
 
     /**
-     * API contract: {@code stop(Player, Path)} may pass any destination.
-     * Writes must land on that path (parents created); the recorder's default output stays unused.
-     * Validated via {@link FlashbackValidator}, not via {@code /replay verify}.
+     * API contract: {@code stop(Player, Path)} may pass any destination; custom-path outputs
+     * are checked with {@link FlashbackAPI#verify(Path)} (not {@code /replay verify}).
      */
     @Test
     void stopWithCustomPathWritesThereAndNotDefault(@TempDir Path dir) throws Exception {
@@ -51,9 +52,10 @@ class FlashbackRecorderTest {
         assertTrue(Files.isRegularFile(custom), "custom path was not written: " + custom);
         assertFalse(Files.exists(defaultOut), "default path must not be written when custom path is set");
 
-        FlashbackValidator.Report report = FlashbackValidator.validate(custom);
-        assertTrue(report.valid(), report.problems().toString());
-        assertEquals(1, report.totalTicks());
+        ReplayCheckResult check = FlashbackAPI.verify(custom);
+        assertTrue(check.valid(), "FlashbackAPI.verify failed: " + check.problems());
+        assertTrue(check.formatValid(), check.problems().toString());
+        assertEquals(1, check.totalTicks());
     }
 
     @Test
@@ -63,6 +65,15 @@ class FlashbackRecorderTest {
         recorder.onTick();
         recorder.stop(null);
 
-        assertTrue(FlashbackValidator.validate(defaultOut).valid());
+        assertTrue(FlashbackAPI.verify(defaultOut).valid());
+    }
+
+    @Test
+    void verifyRejectsMissingFile(@TempDir Path dir) {
+        Path missing = dir.resolve("nope.flashback");
+        ReplayCheckResult check = FlashbackAPI.verify(missing);
+        assertFalse(check.valid());
+        assertTrue(check.errorCount() > 0);
+        assertThrows(IllegalArgumentException.class, () -> FlashbackAPI.verify(null));
     }
 }

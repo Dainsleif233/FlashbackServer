@@ -52,9 +52,10 @@ public interface RecordingService {
      * The path should include the file name, e.g. {@code rounds/final.flashback} or
      * {@code Path.of("D:/replays/match.flashback")}.
      *
-     * <p>Files written to custom paths are produced and validated through this API
-     * ({@code FlashbackValidator}); they are not required to be visible to {@code /replay verify},
-     * which only searches the default {@code replays/} and {@code clips/} directories.
+     * <p>Files written to custom paths are produced and validated through this API — call
+     * {@link FlashbackAPI#verify(java.nio.file.Path)} on the returned path (or any path).
+     * {@code /replay verify} only searches the default {@code replays/} and {@code clips/}
+     * directories; it is not required to see custom-path outputs.
      *
      * <p>Same path is overwritten if it already exists. Parent directories are created.
      * The suffix is not enforced; prefer {@code .flashback}. If the path comes from an untrusted

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
@@ -63,6 +64,20 @@ class FlashbackApiTest {
                 () -> FlashbackAPI.bind(null, new StubRecording(), new StubClips()));
         // prior package-private bind must remain intact
         assertTrue(FlashbackAPI.isAvailable());
+    }
+
+    @Test
+    void verifyNullFileRejected() {
+        assertThrows(IllegalArgumentException.class, () -> FlashbackAPI.verify(null));
+    }
+
+    @Test
+    void verifyMissingFileIsInvalidNotThrow(@org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+        Path missing = dir.resolve("absent.flashback");
+        ReplayCheckResult result = FlashbackAPI.verify(missing);
+        assertFalse(result.valid());
+        assertTrue(result.errorCount() > 0);
+        assertFalse(result.problems().isEmpty());
     }
 
     private static Plugin pluginNamed(String name) {

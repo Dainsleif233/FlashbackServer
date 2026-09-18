@@ -1,6 +1,13 @@
 package dev.zeffut.flashbackserver.api;
 
+import dev.zeffut.flashbackserver.format.FlashbackValidator;
+import dev.zeffut.flashbackserver.verify.ReplayVerifier;
+import dev.zeffut.flashbackserver.version.VersionAdapters;
 import org.bukkit.plugin.Plugin;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Stable entry point for other plugins integrating with FlashbackServer.
@@ -78,6 +85,66 @@ public final class FlashbackAPI {
                     "FlashbackServer API is not available (plugin missing or not enabled)");
         }
         return service;
+    }
+
+    /**
+     * Validates a {@code .flashback} file produced by this plugin — including files written to
+     * custom paths via {@link RecordingService#stop(Player, Path)} /
+     * {@link ClipService#saveClip(org.bukkit.entity.Player, Path)}.
+     *
+     * <p>Layers:
+     * <ol>
+     *   <li><b>Format / container</b> ({@code FlashbackValidator}) — always runs.</li>
+     *   <li><b>Packet decode</b> against the active server version adapter — runs when the
+     *       adapter is available (normal production jar). If the adapter cannot be loaded
+     *       (partial classpath, unit tests), decode is skipped and {@link ReplayCheckResult#decodeClean()}
+     *       is {@code null}; format alone decides {@link ReplayCheckResult#valid()}.</li>
+     * </ol>
+     *
+     * <p>Unlike {@code /replay verify}, this accepts <em>any</em> path, not only files under
+     * the default {@code replays/} / {@code clips/} folders.
+     *
+     * <p>Does <b>not</b> require {@link #isAvailable()}; it only needs the FlashbackServer jar
+     * so this class and format/verify internals load.
+     *
+     * @param file path to a {@code .flashback} container
+     * @return check result
+     * @throws IllegalArgumentException if {@code file} is {@code null}
+     * @throws NoClassDefFoundError if the FlashbackServer jar is not installed
+     */
+    public static ReplayCheckResult verify(Path file) {
+        if (file == null) {
+            throw new IllegalArgumentException("file must not be null");
+        }
+        FlashbackValidator.Report format = FlashbackValidator.validate(file);
+        List<String> problems = new ArrayList<>(format.problems());
+        int formatErrors = format.problems().size();
+        int decodeErrors = 0;
+        int decoded = 0;
+        Boolean decodeClean = null;
+        try {
+            ReplayVerifier.Result decode =
+                    ReplayVerifier.verify(file, VersionAdapters.current());
+            decodeClean = decode.errors() == 0;
+            decoded = decode.decoded();
+            decodeErrors = decode.errors();
+            problems.addAll(decode.problems());
+        } catch (Throwable t) {
+            // Adapter missing or unusable — format check still applies.
+            problems.add("Packet decode skipped: " + t.getClass().getSimpleName()
+                    + ": " + t.getMessage());
+        }
+        int errorCount = formatErrors + decodeErrors;
+        boolean valid = format.valid() && (decodeClean == null || decodeClean);
+        return new ReplayCheckResult(
+                valid,
+                format.valid(),
+                decodeClean,
+                format.totalTicks(),
+                format.chunkCount(),
+                decoded,
+                errorCount,
+                problems);
     }
 
     /**

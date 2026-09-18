@@ -67,8 +67,8 @@ public interface ClipService {
      *
      * <p>Same readiness rules as {@link #saveClip(Player)} (wait ≥1 tick after {@link #arm(Player)}).
      *
-     * <p>Custom-path files are API outputs — validate via the format API
-     * ({@code FlashbackValidator}), not {@code /replay verify} (which only scans default folders).
+     * <p>Custom-path files are API outputs — validate with {@link FlashbackAPI#verify(Path)}.
+     * {@code /replay verify} only scans the default folders.
      *
      * <p>Same path is overwritten if it already exists. The suffix is not enforced; prefer
      * {@code .flashback}. If the path comes from an untrusted source (command, config), the
