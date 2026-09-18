@@ -100,56 +100,73 @@ the Flashback client against your specific server version.
 
 Other plugins can start recordings and manage rolling clips programmatically.
 
-**Consumer `plugin.yml`:**
-```yaml
-softdepend: [FlashbackServer]
-```
+**Consumer setup:**
+- `plugin.yml`: `softdepend: [FlashbackServer]`
+- Compile with `compileOnly` against the FlashbackServer jar (`dev.zeffut.flashbackserver.api`)
+- **Do not shade** the API classes — a second copy of `FlashbackAPI` is never bound
 
-**Preferred entry — static facade:**
+**Classloading note:** if FlashbackServer is **not installed**, referencing `FlashbackAPI` throws
+`NoClassDefFoundError`. Always check installation before touching API classes:
+
 ```java
 import dev.zeffut.flashbackserver.api.ClipService;
 import dev.zeffut.flashbackserver.api.FlashbackAPI;
 import dev.zeffut.flashbackserver.api.RecordingService;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
+import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
+
+if (Bukkit.getPluginManager().getPlugin("FlashbackServer") == null) {
+    return; // not installed — do not touch FlashbackAPI
+}
 if (!FlashbackAPI.isAvailable()) {
-    return; // FlashbackServer not installed or not enabled
+    return; // installed but disabled
 }
 
+// Re-fetch on each use; do not cache across plugin reloads.
 RecordingService recording = FlashbackAPI.recording();
 ClipService clips = FlashbackAPI.clips();
 
-recording.start(player);
-CompletableFuture<Path> file = recording.stop(player); // async write → plugins/FlashbackServer/replays/…
+if (recording.start(player)) {
+    CompletableFuture<Path> file = recording.stop(player); // async → plugins/FlashbackServer/replays/…
+}
 
-clips.arm(player);                 // start rolling buffer (window from config)
-CompletableFuture<Path> clip = clips.saveClip(player); // async write → plugins/FlashbackServer/clips/…
+if (clips.arm(player)) {
+    // Wait ≥1 tick before saveClip — first keyframe is built async; earlier calls return null.
+    CompletableFuture<Path> clip = clips.saveClip(player); // async → plugins/FlashbackServer/clips/…
+}
 ```
 
-**Bukkit ServicesManager alternative:**
+**Bukkit ServicesManager** (same classloading caveat; with `softdepend` the service is already
+registered when your `onEnable` runs — no retry needed):
+
 ```java
 RecordingService recording =
     Bukkit.getServicesManager().load(RecordingService.class);
 ClipService clips =
     Bukkit.getServicesManager().load(ClipService.class);
+if (recording == null || clips == null) {
+    return; // FlashbackServer not enabled
+}
 ```
 
-Or from the plugin instance:
-```java
-FlashbackServerPlugin plugin =
-    (FlashbackServerPlugin) Bukkit.getPluginManager().getPlugin("FlashbackServer");
-RecordingService recording = plugin.getRecordingService(); // null if not enabled
-```
+**Threading:** service methods may be called from any thread. Returned futures complete on an
+**async** thread — do not call Bukkit API in `whenComplete`/`thenAccept` without hopping back to
+the player's region thread (`player.getScheduler().run(...)`).
+
+Do not implement `RecordingService` / `ClipService` in production plugins (test doubles only) —
+methods may be added in future releases.
 
 | Service | Method | Notes |
 |---|---|---|
 | `RecordingService` | `start(Player)` | `false` if already recording |
-| `RecordingService` | `stop(Player)` | `CompletableFuture<Path>`; `null` path if not recording |
+| `RecordingService` | `stop(Player)` | `CompletableFuture<Path>`; `null` path if not recording; completes async |
 | `RecordingService` | `isRecording(Player)` | |
 | `ClipService` | `arm(Player)` / `disarm(Player)` | `false` if already armed / not armed |
 | `ClipService` | `isArmed(Player)` | |
-| `ClipService` | `saveClip(Player)` | `CompletableFuture<Path>`; `null` if not armed or snapshot not ready |
-
-Compile against the FlashbackServer plugin jar (package `dev.zeffut.flashbackserver.api`). The API is stable as long as these interface signatures stay unchanged.
+| `ClipService` | `saveClip(Player)` | `CompletableFuture<Path>`; `null` if not armed or snapshot not ready (wait ≥1 tick after arm); completes async |
 
 ## Telemetry
 

@@ -10,6 +10,14 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>Obtain via {@link FlashbackAPI#clips()} or Bukkit's ServicesManager:
  * {@code Bukkit.getServicesManager().load(ClipService.class)}.
+ *
+ * <p><b>Threading:</b> methods may be called from any thread. {@link #saveClip(Player)} completes
+ * its future on an <em>async</em> scheduler thread — do not touch Bukkit API in the callback
+ * without hopping back to the player's region thread
+ * ({@code player.getScheduler().run(plugin, task, retired)}).
+ *
+ * <p>This interface is a consumer contract. Do not implement it in your own plugin except for
+ * test doubles — methods may be added in future releases.
  */
 public interface ClipService {
 
@@ -36,6 +44,11 @@ public interface ClipService {
      * <p>The returned future completes with the output path, or {@code null} if the player is not
      * armed or the buffer has not finished its first snapshot yet. It completes exceptionally if
      * the file could not be written.
+     *
+     * <p>After {@link #arm(Player)}, wait at least one server tick before calling this — the first
+     * keyframe snapshot is built on the player's region thread.
+     *
+     * <p>Completion thread is async — see class-level threading notes.
      */
     CompletableFuture<Path> saveClip(Player player);
 }

@@ -112,6 +112,36 @@ public final class RecordingManager implements Listener, RecordingService {
 
     public boolean isRecording(Player player) { return active.containsKey(player.getUniqueId()); }
 
+    /**
+     * Stops every active recording, ejects capture handlers, and flushes files synchronously.
+     * Used on plugin disable. Returns how many sessions were closed.
+     */
+    public int stopAll() {
+        int stopped = 0;
+        for (UUID id : active.keySet()) {
+            Active a = active.remove(id);
+            if (a == null) continue;
+            Player player = plugin.getServer().getPlayer(id);
+            if (player != null) {
+                try {
+                    PacketCapture.ejectRaw(player, a.sink());
+                } catch (RuntimeException ignored) {
+                    // player/channel may already be gone
+                }
+            }
+            a.clock().stop();
+            try {
+                a.recorder().stop();
+                plugin.getLogger().info("Saved replay on disable: " + a.output());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to write replay on disable for " + id
+                        + ": " + e.getMessage());
+            }
+            stopped++;
+        }
+        return stopped;
+    }
+
     @EventHandler
     public void onWorldChange(PlayerChangedWorldEvent event) {
         Active a = active.get(event.getPlayer().getUniqueId());

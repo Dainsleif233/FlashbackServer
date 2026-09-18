@@ -15,8 +15,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class FlashbackServerPlugin extends JavaPlugin {
 
-    private RecordingManager recordingManager;
-    private ClipManager clipManager;
+    private volatile RecordingManager recordingManager;
+    private volatile ClipManager clipManager;
 
     @Override
     public void onEnable() {
@@ -76,14 +76,21 @@ public final class FlashbackServerPlugin extends JavaPlugin {
             RecordingService.class, manager, this, ServicePriority.Normal);
         getServer().getServicesManager().register(
             ClipService.class, clips, this, ServicePriority.Normal);
-        FlashbackAPI.bind(manager, clips);
+        FlashbackAPI.bind(this, manager, clips);
+        getLogger().info("Plugin API registered: RecordingService, ClipService");
 
         getLogger().info("FlashbackServer enabled.");
     }
 
     @Override
     public void onDisable() {
-        FlashbackAPI.unbind();
+        int recordings = recordingManager != null ? recordingManager.stopAll() : 0;
+        int clips = clipManager != null ? clipManager.disarmAll() : 0;
+        if (recordings > 0 || clips > 0) {
+            getLogger().info("Disable: closed " + recordings + " recording(s), disarmed "
+                    + clips + " clip buffer(s).");
+        }
+        FlashbackAPI.unbind(this);
         getServer().getServicesManager().unregisterAll(this);
         recordingManager = null;
         clipManager = null;

@@ -108,6 +108,29 @@ public final class ClipManager implements Listener, ClipService {
 
     public boolean isArmed(Player player) { return armed.containsKey(player.getUniqueId()); }
 
+    /**
+     * Disarms every rolling buffer and ejects capture handlers. Used on plugin disable.
+     * Returns how many buffers were disarmed (clips are discarded, not saved).
+     */
+    public int disarmAll() {
+        int disarmed = 0;
+        for (UUID id : armed.keySet()) {
+            Armed a = armed.remove(id);
+            if (a == null) continue;
+            Player player = plugin.getServer().getPlayer(id);
+            if (player != null) {
+                try {
+                    PacketCapture.ejectRaw(player, a.sink());
+                } catch (RuntimeException ignored) {
+                    // player/channel may already be gone
+                }
+            }
+            a.clock().stop();
+            disarmed++;
+        }
+        return disarmed;
+    }
+
     /** Writes the player's current clip window to disk async. Future completes with the path (null if not armed). */
     public CompletableFuture<Path> saveClip(Player player) {
         Armed a = armed.get(player.getUniqueId());
