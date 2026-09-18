@@ -81,6 +81,7 @@ class FlashbackApiTest {
     private static final class StubRecording implements RecordingService {
         @Override public boolean start(Player player) { return true; }
         @Override public CompletableFuture<Path> stop(Player player) { return CompletableFuture.completedFuture(null); }
+        @Override public CompletableFuture<Path> stop(Player player, Path outputFile) { return CompletableFuture.completedFuture(outputFile); }
         @Override public boolean isRecording(Player player) { return false; }
     }
 
@@ -89,5 +90,6 @@ class FlashbackApiTest {
         @Override public boolean disarm(Player player) { return true; }
         @Override public boolean isArmed(Player player) { return false; }
         @Override public CompletableFuture<Path> saveClip(Player player) { return CompletableFuture.completedFuture(null); }
+        @Override public CompletableFuture<Path> saveClip(Player player, Path outputFile) { return CompletableFuture.completedFuture(outputFile); }
     }
 }

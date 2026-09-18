@@ -29,7 +29,8 @@ public interface RecordingService {
     boolean start(Player player);
 
     /**
-     * Stops the player's recording and writes the {@code .flashback} file asynchronously.
+     * Stops the player's recording and writes the {@code .flashback} file asynchronously
+     * to the default location ({@code plugins/FlashbackServer/replays/<name>-<uuid>.flashback}).
      *
      * <p>The returned future completes with the output path, or {@code null} if the player was not
      * being recorded. It completes exceptionally if the file could not be written.
@@ -37,6 +38,34 @@ public interface RecordingService {
      * <p>Completion thread is async — see class-level threading notes.
      */
     CompletableFuture<Path> stop(Player player);
+
+    /**
+     * Stops the player's recording and writes the file asynchronously to {@code outputFile}.
+     *
+     * <p>Path rules:
+     * <ul>
+     *   <li>{@code null} — same as {@link #stop(Player)} (default location)</li>
+     *   <li>absolute path — used as-is (parent directories are created)</li>
+     *   <li>relative path — resolved against the FlashbackServer data folder
+     *       ({@code plugins/FlashbackServer/})</li>
+     * </ul>
+     * The path should include the file name, e.g. {@code rounds/final.flashback} or
+     * {@code Path.of("D:/replays/match.flashback")}.
+     *
+     * <p>Files written to custom paths are produced and validated through this API
+     * ({@code FlashbackValidator}); they are not required to be visible to {@code /replay verify},
+     * which only searches the default {@code replays/} and {@code clips/} directories.
+     *
+     * <p>Same path is overwritten if it already exists. Parent directories are created.
+     * The suffix is not enforced; prefer {@code .flashback}. If the path comes from an untrusted
+     * source (command, config), the caller must validate it — this API does not restrict
+     * {@code ..} or absolute paths.
+     *
+     * @return future completing with the resolved output path, or {@code null} if not recording
+     * @throws java.util.concurrent.CompletionException on write failure (future completes exceptionally);
+     *         completion thread is async — see class-level threading notes
+     */
+    CompletableFuture<Path> stop(Player player, Path outputFile);
 
     /** @return {@code true} if {@code player} is currently being recorded */
     boolean isRecording(Player player);

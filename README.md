@@ -130,12 +130,16 @@ RecordingService recording = FlashbackAPI.recording();
 ClipService clips = FlashbackAPI.clips();
 
 if (recording.start(player)) {
-    CompletableFuture<Path> file = recording.stop(player); // async → plugins/FlashbackServer/replays/…
+    // Default location
+    CompletableFuture<Path> file = recording.stop(player);
+    // Or custom path (absolute as-is; relative → plugins/FlashbackServer/…)
+    // CompletableFuture<Path> file = recording.stop(player, Path.of("rounds/final.flashback"));
 }
 
 if (clips.arm(player)) {
     // Wait ≥1 tick before saveClip — first keyframe is built async; earlier calls return null.
-    CompletableFuture<Path> clip = clips.saveClip(player); // async → plugins/FlashbackServer/clips/…
+    CompletableFuture<Path> clip = clips.saveClip(player);
+    // Or: clips.saveClip(player, Path.of("highlights/kill-01.flashback"));
 }
 ```
 
@@ -162,11 +166,21 @@ methods may be added in future releases.
 | Service | Method | Notes |
 |---|---|---|
 | `RecordingService` | `start(Player)` | `false` if already recording |
-| `RecordingService` | `stop(Player)` | `CompletableFuture<Path>`; `null` path if not recording; completes async |
+| `RecordingService` | `stop(Player)` | default path; `CompletableFuture<Path>`; `null` if not recording; async |
+| `RecordingService` | `stop(Player, Path)` | custom file path incl. name; `null` path → default; relative → data folder |
 | `RecordingService` | `isRecording(Player)` | |
 | `ClipService` | `arm(Player)` / `disarm(Player)` | `false` if already armed / not armed |
 | `ClipService` | `isArmed(Player)` | |
-| `ClipService` | `saveClip(Player)` | `CompletableFuture<Path>`; `null` if not armed or snapshot not ready (wait ≥1 tick after arm); completes async |
+| `ClipService` | `saveClip(Player)` | default path; `null` if not armed/not ready (wait ≥1 tick after arm); async |
+| `ClipService` | `saveClip(Player, Path)` | custom file path incl. name; same readiness rules as above |
+
+**Custom save paths (API):**
+- `null` → default location under `replays/` or `clips/`
+- absolute `Path` → written as-is (parent directories created)
+- relative `Path` → resolved against `plugins/FlashbackServer/` (`plugin.getDataFolder()`)
+- same path is overwritten; suffix not enforced (prefer `.flashback`)
+- custom-path files are **API outputs**: consumers validate them via the plugin/format API
+  (`FlashbackValidator`). `/replay verify` only scans the default `replays/` and `clips/` folders.
 
 ## Telemetry
 

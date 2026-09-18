@@ -51,6 +51,7 @@ public final class ClipManager implements Listener, ClipService {
     }
 
     /** Arms a rolling clip buffer for the player. Returns false if already armed. */
+    @Override
     public boolean arm(Player player) {
         UUID id = player.getUniqueId();
         ClipBuffer buffer = new ClipBuffer(windowSeconds);
@@ -98,6 +99,7 @@ public final class ClipManager implements Listener, ClipService {
     }
 
     /** Disarms (stops buffering). Returns false if not armed. */
+    @Override
     public boolean disarm(Player player) {
         Armed a = armed.remove(player.getUniqueId());
         if (a == null) return false;
@@ -106,6 +108,7 @@ public final class ClipManager implements Listener, ClipService {
         return true;
     }
 
+    @Override
     public boolean isArmed(Player player) { return armed.containsKey(player.getUniqueId()); }
 
     /**
@@ -132,7 +135,13 @@ public final class ClipManager implements Listener, ClipService {
     }
 
     /** Writes the player's current clip window to disk async. Future completes with the path (null if not armed). */
+    @Override
     public CompletableFuture<Path> saveClip(Player player) {
+        return saveClip(player, null);
+    }
+
+    @Override
+    public CompletableFuture<Path> saveClip(Player player, Path outputFile) {
         Armed a = armed.get(player.getUniqueId());
         CompletableFuture<Path> future = new CompletableFuture<>();
         if (a == null) { future.complete(null); return future; }
@@ -153,7 +162,9 @@ public final class ClipManager implements Listener, ClipService {
         List<ReplayAction> stream = clip.stream();
         int ticks = clip.tickCount();
         String name = player.getName();
-        Path out = outputDir.resolve(name + "-clip-" + clipCounter.incrementAndGet() + ".flashback");
+        Path out = outputFile == null
+                ? outputDir.resolve(name + "-clip-" + clipCounter.incrementAndGet() + ".flashback")
+                : ReplayFiles.resolveOutput(plugin, outputFile);
         PlatformScheduler.async(plugin, () -> {
             try {
                 var adapter = VersionAdapters.current();

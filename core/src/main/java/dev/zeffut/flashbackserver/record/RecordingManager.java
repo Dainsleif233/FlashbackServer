@@ -35,6 +35,7 @@ public final class RecordingManager implements Listener, RecordingService {
         this.telemetry = telemetry;
     }
 
+    @Override
     public boolean start(Player player) {
         UUID id = player.getUniqueId();
         if (active.containsKey(id)) return false;
@@ -87,20 +88,29 @@ public final class RecordingManager implements Listener, RecordingService {
         return true;
     }
 
+    @Override
     public CompletableFuture<Path> stop(Player player) {
+        return stop(player, null);
+    }
+
+    @Override
+    public CompletableFuture<Path> stop(Player player, Path outputFile) {
         Active a = active.remove(player.getUniqueId());
         var future = new CompletableFuture<Path>();
         if (a == null) { future.complete(null); return future; }
         PacketCapture.ejectRaw(player, a.sink());
         a.clock().stop();
+        Path dest = outputFile == null
+                ? a.output()
+                : ReplayFiles.resolveOutput(plugin, outputFile);
         PlatformScheduler.async(plugin, () -> {
             try {
-                a.recorder().stop();                 // file write, off the server threads
-                plugin.getLogger().info("Saved replay: " + a.output());
+                a.recorder().stop(dest);       // file write, off the server threads
+                plugin.getLogger().info("Saved replay: " + dest);
                 long fileBytes = -1;
-                try { fileBytes = Files.size(a.output()); } catch (Exception ignored) {}
+                try { fileBytes = Files.size(dest); } catch (Exception ignored) {}
                 telemetry.capture("recording_saved", Map.of("file_bytes", fileBytes));
-                future.complete(a.output());
+                future.complete(dest);
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to write replay: " + e.getMessage());
                 telemetry.capture("recording_failed", Map.of("reason_class", e.getClass().getSimpleName()));
@@ -110,6 +120,7 @@ public final class RecordingManager implements Listener, RecordingService {
         return future;
     }
 
+    @Override
     public boolean isRecording(Player player) { return active.containsKey(player.getUniqueId()); }
 
     /**
