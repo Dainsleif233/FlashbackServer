@@ -41,11 +41,14 @@ tasks.shadowJar {
             include("dev/zeffut/flashbackserver/version/v1_21_$v/**")
         }
     }
-    // Paper 26.1+ runs Mojang-mapped plugins, so its adapter must not be reobfuscated.
-    val v26_2Jar = project(":nms:v26_2").tasks.named<Jar>("jar")
-    dependsOn(v26_2Jar)
-    from(zipTree(v26_2Jar.map { it.outputs.files.singleFile })) {
-        include("dev/zeffut/flashbackserver/version/v26_2/**")
+    // Paper 26.1+ runs Mojang-mapped plugins, so these adapters must not be reobfuscated.
+    val mojangMappedNms = listOf("v26_2", "v26_3")
+    mojangMappedNms.forEach { nms ->
+        val jarTask = project(":nms:$nms").tasks.named<Jar>("jar")
+        dependsOn(jarTask)
+        from(zipTree(jarTask.map { it.outputs.files.singleFile })) {
+            include("dev/zeffut/flashbackserver/version/$nms/**")
+        }
     }
 }
 
@@ -69,27 +72,37 @@ val integrationTest by tasks.registering(Test::class) {
     shouldRunAfter(project(":core").tasks.named("test"))
 }
 
-// Focused real-server smoke for the Java-25 Paper 26.2 adapter. This avoids
-// conflating it with the Java-21 regression suite while running the exact
+// Focused real-server smoke for the Java-25 Paper 26.x adapters. This avoids
+// conflating them with the Java-21 regression suite while running the exact
 // deployed shadow jar, booting the server, asserting plugin enablement, and
 // performing its controlled shutdown.
-val paper26_2Smoke by tasks.registering(Test::class) {
-    val coreTest = project(":core").extensions
-        .getByType<SourceSetContainer>()["test"]
-    useJUnitPlatform { includeTags("integration") }
-    filter { includeTestsMatching("dev.zeffut.flashbackserver.harness.Paper26_2SmokeIT") }
-    testClassesDirs = coreTest.output.classesDirs
-    classpath = coreTest.runtimeClasspath
-    javaLauncher.set(javaToolchains.launcherFor {
-        languageVersion.set(JavaLanguageVersion.of(25))
-    })
-    dependsOn(tasks.shadowJar)
-    systemProperty(
-        "flashback.plugin.jar",
-        tasks.shadowJar.get().archiveFile.get().asFile.absolutePath
-    )
-    shouldRunAfter(project(":core").tasks.named("test"))
-}
+fun registerPaper26Smoke(taskName: String, testClass: String) =
+    tasks.register<Test>(taskName) {
+        val coreTest = project(":core").extensions
+            .getByType<SourceSetContainer>()["test"]
+        useJUnitPlatform { includeTags("integration") }
+        filter { includeTestsMatching(testClass) }
+        testClassesDirs = coreTest.output.classesDirs
+        classpath = coreTest.runtimeClasspath
+        javaLauncher.set(javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        })
+        dependsOn(tasks.shadowJar)
+        systemProperty(
+            "flashback.plugin.jar",
+            tasks.shadowJar.get().archiveFile.get().asFile.absolutePath
+        )
+        shouldRunAfter(project(":core").tasks.named("test"))
+    }
+
+val paper26_2Smoke = registerPaper26Smoke(
+    "paper26_2Smoke",
+    "dev.zeffut.flashbackserver.harness.Paper26_2SmokeIT"
+)
+val paper26_3Smoke = registerPaper26Smoke(
+    "paper26_3Smoke",
+    "dev.zeffut.flashbackserver.harness.Paper26_3SmokeIT"
+)
 
 tasks.runServer {
     minecraftVersion("1.21.5")

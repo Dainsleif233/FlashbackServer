@@ -31,12 +31,13 @@ public final class VersionAdapters {
         "1.21.9",  "dev.zeffut.flashbackserver.version.v1_21_9.V1_21_9Adapter",
         "1.21.10", "dev.zeffut.flashbackserver.version.v1_21_10.V1_21_10Adapter",
         "1.21.11", "dev.zeffut.flashbackserver.version.v1_21_11.V1_21_11Adapter",
-        "26.2",    "dev.zeffut.flashbackserver.version.v26_2.V26_2Adapter"
+        "26.2",    "dev.zeffut.flashbackserver.version.v26_2.V26_2Adapter",
+        "26.3",    "dev.zeffut.flashbackserver.version.v26_3.V26_3Adapter"
     );
 
     /** Adapter used when the running version isn't in the table (newest known). */
     private static final String FALLBACK_FQN =
-        "dev.zeffut.flashbackserver.version.v1_21_11.V1_21_11Adapter";
+        "dev.zeffut.flashbackserver.version.v26_3.V26_3Adapter";
 
     /** Returns the {@link VersionAdapter} for the running Minecraft version. */
     public static VersionAdapter current() {

@@ -25,10 +25,16 @@ public final class PacketIds {
 
     /**
      * Protocol version → clientbound PLAY packet ids.
-     * 770 = MC 1.21.5 (confirmed via docs/research/r3-spike.md). Add rows per supported version.
+     *
+     * <p>770 = MC 1.21.5 (confirmed via docs/research/r3-spike.md).
+     * 776 = MC 26.2 and 777 = MC 26.3 are derived from each version's
+     * {@code GameProtocols.CLIENTBOUND_TEMPLATE} registration order (bundle delimiter is id 0).
+     * Add rows per supported version.
      */
     private static final Map<Integer, Ids> TABLE = Map.of(
-        770, new Ids(43, 65, 39, 63)
+        770, new Ids(43, 65, 39, 63),
+        776, new Ids(48, 70, 44, 68),
+        777, new Ids(49, 71, 45, 69)
     );
 
     private PacketIds() {}

@@ -1,4 +1,4 @@
-package dev.zeffut.flashbackserver.version.v26_2;
+package dev.zeffut.flashbackserver.version.v26_3;
 
 import dev.zeffut.flashbackserver.format.ReplayAction;
 import dev.zeffut.flashbackserver.version.PacketTranslator;
@@ -40,10 +40,10 @@ import java.util.List;
 import java.util.logging.Logger;
 
 /**
- * {@link VersionAdapter} implementation for Minecraft 26.2.
+ * {@link VersionAdapter} implementation for Minecraft 26.3.
  *
  * <p>All {@code net.minecraft.*} and {@code org.bukkit.craftbukkit.*} access in this project is
- * confined to this package ({@code version/v26_2/}).
+ * confined to this package ({@code version/v26_3/}).
  *
  * <h3>Snapshot ordering guarantee</h3>
  * The three snapshot-building methods produce actions in this order when assembled by core:
@@ -54,7 +54,7 @@ import java.util.logging.Logger;
  *   <li>{@link #postLoginActions} — position, player-info, chunks (game_packet × N)</li>
  * </ol>
  */
-public final class V26_2Adapter implements VersionAdapter {
+public final class V26_3Adapter implements VersionAdapter {
 
     /** Maximum chunk radius (in chunks) to include in the snapshot. */
     private static final int SNAPSHOT_CHUNK_RADIUS = 8;
@@ -178,7 +178,7 @@ public final class V26_2Adapter implements VersionAdapter {
                 true,    // showDeathScreen
                 false,   // doLimitedCrafting
                 sp.createCommonSpawnInfo(level),
-                server.usesAuthentication(), // onlineMode (26.2 record field)
+                server.usesAuthentication(), // onlineMode
                 true     // enforcesSecureChat
         );
         return List.of(new ReplayAction(GAME_PACKET, encodeGamePacket(sp, loginPacket)));
