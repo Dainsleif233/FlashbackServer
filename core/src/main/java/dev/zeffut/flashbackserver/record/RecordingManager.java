@@ -1,5 +1,6 @@
 package dev.zeffut.flashbackserver.record;
 
+import dev.zeffut.flashbackserver.api.RecordingService;
 import dev.zeffut.flashbackserver.capture.PacketCapture;
 import dev.zeffut.flashbackserver.capture.PacketSink;
 import dev.zeffut.flashbackserver.platform.PlatformScheduler;
@@ -19,7 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class RecordingManager implements Listener {
+public final class RecordingManager implements Listener, RecordingService {
 
     private final Plugin plugin;
     private final Path outputDir;

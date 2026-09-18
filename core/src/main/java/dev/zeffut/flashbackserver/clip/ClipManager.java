@@ -1,5 +1,6 @@
 package dev.zeffut.flashbackserver.clip;
 
+import dev.zeffut.flashbackserver.api.ClipService;
 import dev.zeffut.flashbackserver.capture.PacketCapture;
 import dev.zeffut.flashbackserver.capture.PacketSink;
 import dev.zeffut.flashbackserver.format.ReplayAction;
@@ -27,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-public final class ClipManager implements Listener {
+public final class ClipManager implements Listener, ClipService {
     private final Plugin plugin;
     private final Path outputDir;
     private final int windowSeconds;

@@ -1,11 +1,22 @@
 package dev.zeffut.flashbackserver;
 
+import dev.zeffut.flashbackserver.api.ClipService;
+import dev.zeffut.flashbackserver.api.FlashbackAPI;
+import dev.zeffut.flashbackserver.api.RecordingService;
+import dev.zeffut.flashbackserver.clip.ClipDeathListener;
+import dev.zeffut.flashbackserver.clip.ClipManager;
 import dev.zeffut.flashbackserver.command.ReplayCommand;
+import dev.zeffut.flashbackserver.command.ReplayTabCompleter;
 import dev.zeffut.flashbackserver.record.RecordingManager;
 import dev.zeffut.flashbackserver.telemetry.Telemetry;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class FlashbackServerPlugin extends JavaPlugin {
+
+    private RecordingManager recordingManager;
+    private ClipManager clipManager;
 
     @Override
     public void onEnable() {
@@ -42,24 +53,50 @@ public final class FlashbackServerPlugin extends JavaPlugin {
         RecordingManager manager = new RecordingManager(this, replays, telemetry);
         getServer().getPluginManager().registerEvents(manager, this);
 
-        dev.zeffut.flashbackserver.clip.ClipManager clipManager =
-            new dev.zeffut.flashbackserver.clip.ClipManager(this, clipsDir, window, telemetry);
-        getServer().getPluginManager().registerEvents(clipManager, this);
+        ClipManager clips =
+            new ClipManager(this, clipsDir, window, telemetry);
+        getServer().getPluginManager().registerEvents(clips, this);
         getServer().getPluginManager().registerEvents(
-            new dev.zeffut.flashbackserver.clip.ClipDeathListener(clipManager, autoClip), this);
-        org.bukkit.command.PluginCommand replayCmd = getCommand("replay");
+            new ClipDeathListener(clips, autoClip), this);
+        PluginCommand replayCmd = getCommand("replay");
         replayCmd.setExecutor(
-            new dev.zeffut.flashbackserver.command.ReplayCommand(
+            new ReplayCommand(
                 manager,
-                clipManager,
+                clips,
                 replays,
                 clipsDir,
                 getLogger(),
                 this));
         replayCmd.setTabCompleter(
-            new dev.zeffut.flashbackserver.command.ReplayTabCompleter(replays, clipsDir));
+            new ReplayTabCompleter(replays, clipsDir));
+
+        this.recordingManager = manager;
+        this.clipManager = clips;
+        getServer().getServicesManager().register(
+            RecordingService.class, manager, this, ServicePriority.Normal);
+        getServer().getServicesManager().register(
+            ClipService.class, clips, this, ServicePriority.Normal);
+        FlashbackAPI.bind(manager, clips);
 
         getLogger().info("FlashbackServer enabled.");
+    }
+
+    @Override
+    public void onDisable() {
+        FlashbackAPI.unbind();
+        getServer().getServicesManager().unregisterAll(this);
+        recordingManager = null;
+        clipManager = null;
+    }
+
+    /** @return the live recording service, or {@code null} if the plugin is not enabled */
+    public RecordingService getRecordingService() {
+        return recordingManager;
+    }
+
+    /** @return the live clip service, or {@code null} if the plugin is not enabled */
+    public ClipService getClipService() {
+        return clipManager;
     }
 
     private static boolean isFolia() {

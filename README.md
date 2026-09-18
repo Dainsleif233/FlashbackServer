@@ -96,6 +96,61 @@ changes trigger a fresh snapshot.
 Core recording, clip, and verify features are shipped. Visual rendering should be confirmed in
 the Flashback client against your specific server version.
 
+## Plugin API
+
+Other plugins can start recordings and manage rolling clips programmatically.
+
+**Consumer `plugin.yml`:**
+```yaml
+softdepend: [FlashbackServer]
+```
+
+**Preferred entry — static facade:**
+```java
+import dev.zeffut.flashbackserver.api.ClipService;
+import dev.zeffut.flashbackserver.api.FlashbackAPI;
+import dev.zeffut.flashbackserver.api.RecordingService;
+
+if (!FlashbackAPI.isAvailable()) {
+    return; // FlashbackServer not installed or not enabled
+}
+
+RecordingService recording = FlashbackAPI.recording();
+ClipService clips = FlashbackAPI.clips();
+
+recording.start(player);
+CompletableFuture<Path> file = recording.stop(player); // async write → plugins/FlashbackServer/replays/…
+
+clips.arm(player);                 // start rolling buffer (window from config)
+CompletableFuture<Path> clip = clips.saveClip(player); // async write → plugins/FlashbackServer/clips/…
+```
+
+**Bukkit ServicesManager alternative:**
+```java
+RecordingService recording =
+    Bukkit.getServicesManager().load(RecordingService.class);
+ClipService clips =
+    Bukkit.getServicesManager().load(ClipService.class);
+```
+
+Or from the plugin instance:
+```java
+FlashbackServerPlugin plugin =
+    (FlashbackServerPlugin) Bukkit.getPluginManager().getPlugin("FlashbackServer");
+RecordingService recording = plugin.getRecordingService(); // null if not enabled
+```
+
+| Service | Method | Notes |
+|---|---|---|
+| `RecordingService` | `start(Player)` | `false` if already recording |
+| `RecordingService` | `stop(Player)` | `CompletableFuture<Path>`; `null` path if not recording |
+| `RecordingService` | `isRecording(Player)` | |
+| `ClipService` | `arm(Player)` / `disarm(Player)` | `false` if already armed / not armed |
+| `ClipService` | `isArmed(Player)` | |
+| `ClipService` | `saveClip(Player)` | `CompletableFuture<Path>`; `null` if not armed or snapshot not ready |
+
+Compile against the FlashbackServer plugin jar (package `dev.zeffut.flashbackserver.api`). The API is stable as long as these interface signatures stay unchanged.
+
 ## Telemetry
 
 Flashback Server collects **anonymous, opt-out** usage telemetry to help improve the plugin.
