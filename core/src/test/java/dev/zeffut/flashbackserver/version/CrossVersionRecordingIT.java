@@ -64,6 +64,11 @@ class CrossVersionRecordingIT {
         assertAdapterSelected(dir, 25622, "26.2", "V26_2Adapter");
     }
 
+    @Test
+    void selectsThe26_3AdapterOnA26_3Server(@TempDir Path dir) throws Exception {
+        assertAdapterSelected(dir, 25623, "26.3", "V26_3Adapter");
+    }
+
     private static void assertAdapterSelected(Path dir, int port, String version, String adapterClass)
             throws Exception {
         try (PaperTestServer server = PaperTestServer.start(dir, port, "paper", version)) {

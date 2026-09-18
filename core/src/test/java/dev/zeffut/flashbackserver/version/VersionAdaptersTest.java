@@ -20,4 +20,16 @@ class VersionAdaptersTest {
                 "dev.zeffut.flashbackserver.version.v26_2.V26_2Adapter",
                 byVersion.get("26.2"));
     }
+
+    @Test
+    void selectsDedicatedAdapterForMinecraft263() throws ReflectiveOperationException {
+        Field adapters = VersionAdapters.class.getDeclaredField("ADAPTERS_BY_VERSION");
+        adapters.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, String> byVersion = (Map<String, String>) adapters.get(null);
+
+        assertEquals(
+                "dev.zeffut.flashbackserver.version.v26_3.V26_3Adapter",
+                byVersion.get("26.3"));
+    }
 }
