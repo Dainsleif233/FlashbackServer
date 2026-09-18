@@ -2,8 +2,26 @@ plugins {
     java
 }
 
+import org.gradle.api.JavaVersion
+import org.gradle.api.attributes.java.TargetJvmVersion
+
 java {
+    // Paper 1.16.1 only accepts Java <= 14 at runtime. Compile core (and the 1.16.1 adapter)
+    // to Java 11 bytecode so the plugin class files load on that server. Modern adapters keep
+    // their own higher toolchains and are only Class.forName'd on matching MC versions.
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    // paper-api 1.21.5 is a Java 21 library; we still compile our code to release 11.
+    disableAutoTargetJvm()
+}
+
+tasks.named<JavaCompile>("compileJava") {
+    options.release.set(8)
+}
+
+configurations.named("compileClasspath") {
+    attributes {
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
+    }
 }
 
 repositories {

@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.clip;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.format.ReplayAction;
 
 import java.util.ArrayDeque;
@@ -26,7 +28,18 @@ public final class ClipBuffer {
     static final String NEXT_TICK_ACTION   = "flashback:action/next_tick";
 
     /** Immutable description of one rolling window: keyframe + completed tick frames. */
-    private record Segment(List<ReplayAction> keyframe, Deque<List<byte[]>> frames) {}
+    private static final class Segment {
+        private final List<ReplayAction> keyframe;
+        private final Deque<List<byte[]>> frames;
+
+        Segment(List<ReplayAction> keyframe, Deque<List<byte[]>> frames) {
+            this.keyframe = keyframe;
+            this.frames = frames;
+        }
+
+        List<ReplayAction> keyframe() { return keyframe; }
+        Deque<List<byte[]>> frames() { return frames; }
+    }
 
     private final int windowTicks;
 
@@ -111,7 +124,7 @@ public final class ClipBuffer {
         lock.lock();
         try {
             if (segments.size() >= 2) segments.removeFirst(); // keep ≤ 2
-            segments.addLast(new Segment(List.copyOf(dynamicKeyframe), new ArrayDeque<>()));
+            segments.addLast(new Segment(Coll.copyOf(dynamicKeyframe), new ArrayDeque<>()));
             current = new ArrayList<>();
             ticksInCurrentSegment = 0;
         } finally { lock.unlock(); }
@@ -127,7 +140,7 @@ public final class ClipBuffer {
     public List<ReplayAction> clipSnapshotActions() {
         lock.lock();
         try {
-            if (segments.isEmpty()) return List.of();
+            if (segments.isEmpty()) return Coll.listOf();
             return segments.peekFirst().keyframe();
         } finally { lock.unlock(); }
     }
@@ -169,7 +182,21 @@ public final class ClipBuffer {
     }
 
     /** An atomically-captured clip: snapshot keyframe, stream actions, and tick count, all consistent. */
-    public record ClipData(List<ReplayAction> snapshot, List<ReplayAction> stream, int tickCount) {}
+    public static final class ClipData {
+        private final List<ReplayAction> snapshot;
+        private final List<ReplayAction> stream;
+        private final int tickCount;
+
+        public ClipData(List<ReplayAction> snapshot, List<ReplayAction> stream, int tickCount) {
+            this.snapshot = snapshot;
+            this.stream = stream;
+            this.tickCount = tickCount;
+        }
+
+        public List<ReplayAction> snapshot() { return snapshot; }
+        public List<ReplayAction> stream() { return stream; }
+        public int tickCount() { return tickCount; }
+    }
 
     /**
      * Captures the snapshot keyframe, the stream actions, and the tick count under a SINGLE lock
@@ -180,7 +207,7 @@ public final class ClipBuffer {
     public ClipData captureClip() {
         lock.lock();
         try {
-            List<ReplayAction> snapshot = segments.isEmpty() ? List.of() : segments.peekFirst().keyframe();
+            List<ReplayAction> snapshot = segments.isEmpty() ? Coll.listOf() : segments.peekFirst().keyframe();
             List<ReplayAction> stream = new ArrayList<>();
             int ticks = 0;
             for (Segment seg : segments) {

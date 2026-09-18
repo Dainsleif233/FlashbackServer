@@ -7,4 +7,16 @@ package dev.zeffut.flashbackserver.capture;
  * <p>Packets the Flashback client refuses never reach a sink, and a bundle arrives as one
  * {@code CapturedPacket} per sub-packet — {@link PacketCapture} does both before fanning out.
  */
-public record CapturedPacket(String packetClass, byte[] rawBytes) {}
+public final class CapturedPacket {
+    private final String packetClass;
+    private final byte[] rawBytes;
+
+    public CapturedPacket(String packetClass, byte[] rawBytes) {
+        this.packetClass = packetClass;
+        this.rawBytes = rawBytes;
+    }
+
+    public String packetClass() { return packetClass; }
+
+    public byte[] rawBytes() { return rawBytes; }
+}

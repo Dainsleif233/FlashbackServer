@@ -225,11 +225,13 @@ public final class CreateLocalPlayerAction {
      * Maps a Bukkit {@link GameMode} to the vanilla game-mode id used in MC wire format.
      */
     private static int gameModeId(GameMode mode) {
-        return switch (mode) {
-            case SURVIVAL -> 0;
-            case CREATIVE -> 1;
-            case ADVENTURE -> 2;
-            case SPECTATOR -> 3;
-        };
+        if (mode == null) return 0;
+        switch (mode) {
+            case CREATIVE: return 1;
+            case ADVENTURE: return 2;
+            case SPECTATOR: return 3;
+            case SURVIVAL:
+            default: return 0;
+        }
     }
 }

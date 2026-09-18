@@ -7,7 +7,7 @@ Copy-paste material for the Modrinth project page. (The actual upload is manual 
 - **Slug:** flashback-server
 - **Project type:** Plugin
 - **Loaders:** Paper, Purpur, Folia
-- **Minecraft versions:** 1.21.5–1.21.11
+- **Minecraft versions:** 1.16.1, 1.21.5–1.21.11, 26.2
 - **License:** MIT
 - **Source:** https://github.com/Zeffut/FlashbackServer
 - **Client/server:** Server-side (required on server; not required on client). Replays are viewed with the
@@ -54,7 +54,7 @@ Flashback client mod.
 - `telemetry.enabled` (default true) — anonymous, no-PII usage telemetry; set false to disable.
 
 ## Install
-1. Paper or a Paper fork (Purpur/Folia) for **Minecraft 1.21.5–1.21.11**.
+1. Paper or a Paper fork (Purpur/Folia) for **Minecraft 1.16.1 or 1.21.5–1.21.11, 26.2**.
 2. Drop the jar in `plugins/`, restart. No dependencies.
 3. View replays with the [Flashback](https://modrinth.com/mod/flashback) client mod.
 

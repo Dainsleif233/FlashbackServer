@@ -28,6 +28,7 @@ dependencies {
 // Ensure the nms subprojects are configured first so their paperweight `reobfJar` tasks exist.
 val nmsVersions = listOf("5", "6", "7", "8", "9", "10", "11")
 nmsVersions.forEach { v -> evaluationDependsOn(":nms:v1_21_$v") }
+evaluationDependsOn(":nms:v1_16_1")
 val nmsReobfJars = nmsVersions.associateWith { v ->
     project(":nms:v1_21_$v").tasks.named("reobfJar")
 }
@@ -46,6 +47,12 @@ tasks.shadowJar {
     dependsOn(v26_2Jar)
     from(zipTree(v26_2Jar.map { it.outputs.files.singleFile })) {
         include("dev/zeffut/flashbackserver/version/v26_2/**")
+    }
+    // Paper 1.16.1 already uses Spigot NMS names at runtime — no reobf either.
+    val v1_16_1Jar = project(":nms:v1_16_1").tasks.named<Jar>("jar")
+    dependsOn(v1_16_1Jar)
+    from(zipTree(v1_16_1Jar.map { it.outputs.files.singleFile })) {
+        include("dev/zeffut/flashbackserver/version/v1_16_1/**")
     }
 }
 

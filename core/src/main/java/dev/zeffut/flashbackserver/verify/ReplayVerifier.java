@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.verify;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.format.ChunkReader;
 import dev.zeffut.flashbackserver.format.FlashbackContainer;
 import dev.zeffut.flashbackserver.format.ReplayAction;
@@ -23,7 +25,21 @@ public final class ReplayVerifier {
     private ReplayVerifier() {}
 
     /** Aggregated result across all chunks of a single {@code .flashback} file. */
-    public record Result(int decoded, int errors, List<String> problems) {}
+    public static final class Result {
+        private final int decoded;
+        private final int errors;
+        private final List<String> problems;
+
+        public Result(int decoded, int errors, List<String> problems) {
+            this.decoded = decoded;
+            this.errors = errors;
+            this.problems = problems;
+        }
+
+        public int decoded() { return decoded; }
+        public int errors() { return errors; }
+        public List<String> problems() { return problems; }
+    }
 
     /**
      * Opens {@code file}, iterates every chunk, and decodes each
@@ -39,7 +55,7 @@ public final class ReplayVerifier {
         List<String> problems = new ArrayList<>();
 
         try (FlashbackContainer.Reader reader = FlashbackContainer.open(file)) {
-            var meta = reader.readMetadata();
+            dev.zeffut.flashbackserver.format.FlashbackMeta meta = reader.readMetadata();
 
             for (String chunkName : meta.chunks.keySet()) {
                 List<ReplayAction> snapshotActions;
@@ -73,6 +89,6 @@ public final class ReplayVerifier {
             }
         }
 
-        return new Result(decoded, errors, List.copyOf(problems));
+        return new Result(decoded, errors, Coll.copyOf(problems));
     }
 }

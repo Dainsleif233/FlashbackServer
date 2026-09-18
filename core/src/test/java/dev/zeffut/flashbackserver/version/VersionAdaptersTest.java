@@ -10,6 +10,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class VersionAdaptersTest {
 
     @Test
+    void selectsDedicatedAdapterForMinecraft1161() throws ReflectiveOperationException {
+        Field adapters = VersionAdapters.class.getDeclaredField("ADAPTERS_BY_VERSION");
+        adapters.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, String> byVersion = (Map<String, String>) adapters.get(null);
+
+        assertEquals(
+                "dev.zeffut.flashbackserver.version.v1_16_1.V1_16_1Adapter",
+                byVersion.get("1.16.1"));
+    }
+
+    @Test
     void selectsDedicatedAdapterForMinecraft262() throws ReflectiveOperationException {
         Field adapters = VersionAdapters.class.getDeclaredField("ADAPTERS_BY_VERSION");
         adapters.setAccessible(true);

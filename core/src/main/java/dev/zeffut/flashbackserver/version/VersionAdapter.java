@@ -117,15 +117,85 @@ public interface VersionAdapter {
     DecodeResult decode(List<ReplayAction> snapshotActions, List<ReplayAction> streamActions);
 
     /** Summary of a decode pass over one chunk's actions. */
-    record DecodeResult(int decoded, int errors, List<String> problems) {}
+    final class DecodeResult {
+        private final int decoded;
+        private final int errors;
+        private final List<String> problems;
+
+        public DecodeResult(int decoded, int errors, List<String> problems) {
+            this.decoded = decoded;
+            this.errors = errors;
+            this.problems = problems;
+        }
+
+        public int decoded() { return decoded; }
+        public int errors() { return errors; }
+        public List<String> problems() { return problems; }
+    }
 
     /**
      * One entity's absolute position and orientation at a point in time.
      *
-     * <p>Mirrors the per-entity record inside a {@code flashback:action/move_entities} payload.
+     * <p>Mirrors the per-entity payload inside a {@code flashback:action/move_entities} action.
      * Absolute, not relative: the vanilla {@code ClientboundMoveEntityPacket} deltas the client
      * refuses have no equivalent here, which is the whole reason this type exists.
      */
-    record EntityPosition(int entityId, double x, double y, double z,
-                          float yaw, float pitch, float headYaw, boolean onGround) {}
+    final class EntityPosition {
+        private final int entityId;
+        private final double x, y, z;
+        private final float yaw, pitch, headYaw;
+        private final boolean onGround;
+
+        public EntityPosition(int entityId, double x, double y, double z,
+                              float yaw, float pitch, float headYaw, boolean onGround) {
+            this.entityId = entityId;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.yaw = yaw;
+            this.pitch = pitch;
+            this.headYaw = headYaw;
+            this.onGround = onGround;
+        }
+
+        public int entityId() { return entityId; }
+        public double x() { return x; }
+        public double y() { return y; }
+        public double z() { return z; }
+        public float yaw() { return yaw; }
+        public float pitch() { return pitch; }
+        public float headYaw() { return headYaw; }
+        public boolean onGround() { return onGround; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof EntityPosition)) return false;
+            EntityPosition that = (EntityPosition) o;
+            return entityId == that.entityId
+                    && Double.compare(that.x, x) == 0
+                    && Double.compare(that.y, y) == 0
+                    && Double.compare(that.z, z) == 0
+                    && Float.compare(that.yaw, yaw) == 0
+                    && Float.compare(that.pitch, pitch) == 0
+                    && Float.compare(that.headYaw, headYaw) == 0
+                    && onGround == that.onGround;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = entityId;
+            long bits = Double.doubleToLongBits(x);
+            result = 31 * result + (int) (bits ^ (bits >>> 32));
+            bits = Double.doubleToLongBits(y);
+            result = 31 * result + (int) (bits ^ (bits >>> 32));
+            bits = Double.doubleToLongBits(z);
+            result = 31 * result + (int) (bits ^ (bits >>> 32));
+            result = 31 * result + Float.floatToIntBits(yaw);
+            result = 31 * result + Float.floatToIntBits(pitch);
+            result = 31 * result + Float.floatToIntBits(headYaw);
+            result = 31 * result + (onGround ? 1 : 0);
+            return result;
+        }
+    }
 }

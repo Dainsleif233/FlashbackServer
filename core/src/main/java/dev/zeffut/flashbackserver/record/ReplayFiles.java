@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.record;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.format.*;
 import java.nio.file.Path;
 import java.util.List;
@@ -22,7 +24,7 @@ public final class ReplayFiles {
     private static String minecraftVersion() {
         try {
             String v = Bukkit.getMinecraftVersion();
-            if (v != null && !v.isBlank()) return v;
+            if (v != null && !v.trim().isEmpty()) return v;
         } catch (Throwable ignored) {
             // No running server (tests) -- fall through.
         }
@@ -30,7 +32,25 @@ public final class ReplayFiles {
     }
 
     /** Represents a single chunk to be written. */
-    public record Chunk(List<ReplayAction> snapshot, List<ReplayAction> stream, int tickCount, boolean forcePlaySnapshot) {}
+    public static final class Chunk {
+        private final List<ReplayAction> snapshot;
+        private final List<ReplayAction> stream;
+        private final int tickCount;
+        private final boolean forcePlaySnapshot;
+
+        public Chunk(List<ReplayAction> snapshot, List<ReplayAction> stream,
+                     int tickCount, boolean forcePlaySnapshot) {
+            this.snapshot = snapshot;
+            this.stream = stream;
+            this.tickCount = tickCount;
+            this.forcePlaySnapshot = forcePlaySnapshot;
+        }
+
+        public List<ReplayAction> snapshot() { return snapshot; }
+        public List<ReplayAction> stream() { return stream; }
+        public int tickCount() { return tickCount; }
+        public boolean forcePlaySnapshot() { return forcePlaySnapshot; }
+    }
 
     /**
      * Writes a multi-chunk .flashback file from the given list of chunks.
@@ -48,7 +68,7 @@ public final class ReplayFiles {
             Chunk c = chunks.get(i);
             meta.chunks.put("c" + i + ".flashback", new ChunkMeta(c.tickCount(), c.forcePlaySnapshot()));
         }
-        try (var writer = FlashbackContainer.create(output)) {
+        try (dev.zeffut.flashbackserver.format.FlashbackContainer.Writer writer = FlashbackContainer.create(output)) {
             writer.writeMetadata(meta);
             for (int i = 0; i < chunks.size(); i++) {
                 Chunk c = chunks.get(i);
@@ -61,6 +81,6 @@ public final class ReplayFiles {
     public static void write(Path output, String playerName, int protocolVersion, int dataVersion,
                              List<ReplayAction> snapshotActions, List<ReplayAction> streamActions, int tickCount) throws Exception {
         write(output, playerName, protocolVersion, dataVersion,
-              List.of(new Chunk(snapshotActions, streamActions, tickCount, true)));
+              Coll.listOf(new Chunk(snapshotActions, streamActions, tickCount, true)));
     }
 }

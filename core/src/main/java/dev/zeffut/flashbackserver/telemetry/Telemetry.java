@@ -4,10 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -25,20 +25,18 @@ public class Telemetry {
     private final String distinctId;
     private final String pluginVersion;
     private final Logger logger;
-    private final HttpClient http;
 
     public Telemetry(boolean enabledConfig, String host, String projectKey,
                      String distinctId, String pluginVersion, Logger logger) {
         this.enabled = enabledConfig
                 && projectKey != null
-                && !projectKey.isBlank()
+                && !projectKey.trim().isEmpty()
                 && !projectKey.equals(PLACEHOLDER_KEY);
         this.host = host;
         this.projectKey = projectKey;
         this.distinctId = distinctId;
         this.pluginVersion = pluginVersion;
         this.logger = logger;
-        this.http = HttpClient.newHttpClient();
     }
 
     public boolean isEnabled() {
@@ -51,11 +49,9 @@ public class Telemetry {
      */
     String buildPayload(String event, Map<String, Object> props) {
         JsonObject properties = new JsonObject();
-        // Add caller-supplied props first
         for (Map.Entry<String, Object> entry : props.entrySet()) {
             properties.add(entry.getKey(), GSON.toJsonTree(entry.getValue()));
         }
-        // Add standard library props
         properties.addProperty("$lib", "flashback-server");
         properties.addProperty("plugin_version", pluginVersion);
 
@@ -70,20 +66,46 @@ public class Telemetry {
 
     /**
      * Captures an event asynchronously. Never throws — telemetry must never affect the server.
+     * Uses HttpURLConnection so core stays Java 8 compatible for Paper 1.16.1.
      */
     public void capture(String event, Map<String, Object> props) {
+        if (!enabled) return;
+        final String payload;
         try {
-            if (!enabled) return;
-            String payload = buildPayload(event, props);
-            HttpRequest req = HttpRequest.newBuilder(URI.create(host + "/i/v0/e/"))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(payload))
-                    .build();
-            http.sendAsync(req, HttpResponse.BodyHandlers.discarding())
-                    .exceptionally(t -> { return null; }); // swallow — telemetry must never affect the server
+            payload = buildPayload(event, props);
         } catch (Throwable t) {
-            // Swallow all errors: telemetry must never propagate into server threads
+            return;
         }
+        final String url = host + "/i/v0/e/";
+        Thread worker = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                HttpURLConnection conn = null;
+                try {
+                    conn = (HttpURLConnection) new URL(url).openConnection();
+                    conn.setConnectTimeout(2000);
+                    conn.setReadTimeout(2000);
+                    conn.setRequestMethod("POST");
+                    conn.setDoOutput(true);
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    byte[] body = payload.getBytes(StandardCharsets.UTF_8);
+                    conn.setFixedLengthStreamingMode(body.length);
+                    OutputStream out = conn.getOutputStream();
+                    try {
+                        out.write(body);
+                    } finally {
+                        out.close();
+                    }
+                    conn.getResponseCode();
+                } catch (Throwable ignored) {
+                    // Swallow all errors: telemetry must never propagate into server threads
+                } finally {
+                    if (conn != null) conn.disconnect();
+                }
+            }
+        }, "FlashbackServer-Telemetry");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     /**
@@ -94,17 +116,17 @@ public class Telemetry {
         Path idFile = dataFolder.resolve(".telemetry-id");
         try {
             if (Files.exists(idFile)) {
-                String content = Files.readString(idFile).trim();
-                if (!content.isBlank()) {
+                byte[] raw = Files.readAllBytes(idFile);
+                String content = new String(raw, StandardCharsets.UTF_8).trim();
+                if (!content.isEmpty()) {
                     return content;
                 }
             }
             String newId = UUID.randomUUID().toString();
             Files.createDirectories(dataFolder);
-            Files.writeString(idFile, newId);
+            Files.write(idFile, newId.getBytes(StandardCharsets.UTF_8));
             return newId;
         } catch (IOException e) {
-            // Persistence failed; return a fresh UUID without rethrowing
             return UUID.randomUUID().toString();
         }
     }

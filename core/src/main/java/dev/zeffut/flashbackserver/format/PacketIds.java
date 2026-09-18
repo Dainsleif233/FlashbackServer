@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.format;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,13 +23,33 @@ public final class PacketIds {
      * @param chunk      clientbound PLAY LevelChunkWithLightPacket id
      * @param playerInfo clientbound PLAY PlayerInfoUpdatePacket id
      */
-    public record Ids(int login, int position, int chunk, int playerInfo) {}
+    public static final class Ids {
+        private final int login;
+        private final int position;
+        private final int chunk;
+        private final int playerInfo;
+
+        public Ids(int login, int position, int chunk, int playerInfo) {
+            this.login = login;
+            this.position = position;
+            this.chunk = chunk;
+            this.playerInfo = playerInfo;
+        }
+
+        public int login() { return login; }
+        public int position() { return position; }
+        public int chunk() { return chunk; }
+        public int playerInfo() { return playerInfo; }
+    }
 
     /**
      * Protocol version → clientbound PLAY packet ids.
+     *
+     * <p>736 = MC 1.16.1 (EnumProtocol.PLAY clientbound registration on Paper build 138).
      * 770 = MC 1.21.5 (confirmed via docs/research/r3-spike.md). Add rows per supported version.
      */
-    private static final Map<Integer, Ids> TABLE = Map.of(
+    private static final Map<Integer, Ids> TABLE = Coll.mapOf(
+        736, new Ids(37, 53, 33, 51),
         770, new Ids(43, 65, 39, 63)
     );
 

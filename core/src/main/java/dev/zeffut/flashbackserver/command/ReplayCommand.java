@@ -1,6 +1,9 @@
 package dev.zeffut.flashbackserver.command;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.clip.ClipManager;
+import dev.zeffut.flashbackserver.platform.PlatformScheduler;
 import dev.zeffut.flashbackserver.record.RecordingManager;
 import dev.zeffut.flashbackserver.verify.ReplayVerifier;
 import dev.zeffut.flashbackserver.version.VersionAdapters;
@@ -13,7 +16,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 public final class ReplayCommand implements CommandExecutor {
-    private static final List<String> HELP_LINES = List.of(
+    private static final List<String> HELP_LINES = Coll.listOf(
             "/replay start players <player>   - start recording a player",
             "/replay stop players <player>    - stop & save a recording",
             "/replay clip arm <player>        - start a rolling clip buffer",
@@ -89,8 +92,8 @@ public final class ReplayCommand implements CommandExecutor {
                     sender.sendMessage(target.getName() + " was not being recorded");
                 } else {
                     sender.sendMessage("Stopping recording for " + target.getName() + " (writing replay…)");
-                    var future = manager.stop(target);
-                    future.whenComplete((path, err) -> sender.getServer().getGlobalRegionScheduler().run(plugin, t -> {
+                    java.util.concurrent.CompletableFuture<Path> future = manager.stop(target);
+                    future.whenComplete((path, err) -> PlatformScheduler.syncGlobal(plugin, () -> {
                         if (err != null) sender.sendMessage("Replay error: " + err);
                         else if (path != null) sender.sendMessage("Saved: " + path.getFileName());
                     }));
@@ -124,8 +127,8 @@ public final class ReplayCommand implements CommandExecutor {
                     sender.sendMessage(target.getName() + " has no clips armed");
                 } else {
                     sender.sendMessage("Saving clip for " + target.getName() + "…");
-                    var future = clipManager.saveClip(target);
-                    future.whenComplete((path, err) -> sender.getServer().getGlobalRegionScheduler().run(plugin, t -> {
+                    java.util.concurrent.CompletableFuture<Path> future = clipManager.saveClip(target);
+                    future.whenComplete((path, err) -> PlatformScheduler.syncGlobal(plugin, () -> {
                         if (err != null) sender.sendMessage("Replay error: " + err);
                         else if (path != null) sender.sendMessage("Saved: " + path.getFileName());
                     }));

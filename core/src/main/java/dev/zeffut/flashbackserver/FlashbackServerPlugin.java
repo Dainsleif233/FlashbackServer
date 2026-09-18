@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.command.ReplayCommand;
 import dev.zeffut.flashbackserver.record.RecordingManager;
 import dev.zeffut.flashbackserver.telemetry.Telemetry;
@@ -28,16 +30,24 @@ public final class FlashbackServerPlugin extends JavaPlugin {
         boolean telemetryEnabled = getConfig().getBoolean("telemetry.enabled", true);
         String phHost = getConfig().getString("telemetry.posthog.host", "https://us.i.posthog.com");
         String phKey = getConfig().getString("telemetry.posthog.project-key", "");
+        // getDescription() works on 1.16.1 Paper through modern 26.x; getPluginMeta() is 1.19+.
+        String pluginVersion = getDescription().getVersion();
         Telemetry telemetry = new Telemetry(telemetryEnabled, phHost, phKey,
-            Telemetry.loadOrCreateDistinctId(getDataFolder().toPath()), getPluginMeta().getVersion(), getLogger());
+            Telemetry.loadOrCreateDistinctId(getDataFolder().toPath()), pluginVersion, getLogger());
         if (telemetry.isEnabled()) {
             getLogger().info("Anonymous telemetry is enabled (no player data). Disable it with telemetry.enabled: false in config.yml.");
         }
-        telemetry.capture("plugin_enabled", java.util.Map.of(
+        String mcVersion;
+        try {
+            mcVersion = getServer().getMinecraftVersion();
+        } catch (NoSuchMethodError e) {
+            mcVersion = getServer().getBukkitVersion();
+        }
+        telemetry.capture("plugin_enabled", dev.zeffut.flashbackserver.util.Coll.mapOf(
             "platform", isFolia() ? "Folia" : "Paper",
             "server_version", getServer().getVersion(),
-            "mc_version", getServer().getMinecraftVersion(),
-            "plugin_version", getPluginMeta().getVersion()));
+            "mc_version", mcVersion,
+            "plugin_version", pluginVersion));
 
         RecordingManager manager = new RecordingManager(this, replays, telemetry);
         getServer().getPluginManager().registerEvents(manager, this);

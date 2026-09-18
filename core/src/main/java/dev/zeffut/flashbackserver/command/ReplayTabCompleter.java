@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.command;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
@@ -15,9 +17,9 @@ import java.util.stream.Stream;
 
 public final class ReplayTabCompleter implements TabCompleter {
 
-    private static final List<String> TOP_LEVEL = List.of("start", "stop", "clip", "verify", "help");
-    private static final List<String> CLIP_ACTIONS = List.of("arm", "disarm", "save");
-    private static final Set<String> PLAYER_SUBS = Set.of("start", "stop", "clip");
+    private static final List<String> TOP_LEVEL = Coll.listOf("start", "stop", "clip", "verify", "help");
+    private static final List<String> CLIP_ACTIONS = Coll.listOf("arm", "disarm", "save");
+    private static final Set<String> PLAYER_SUBS = Coll.setOf("start", "stop", "clip");
 
     private final Path replaysDir;
     private final Path clipsDir;
@@ -40,7 +42,7 @@ public final class ReplayTabCompleter implements TabCompleter {
             String sub = args[0].toLowerCase();
             String prefix = args[1].toLowerCase();
             if (sub.equals("start") || sub.equals("stop")) {
-                return List.of("players").stream()
+                return Coll.listOf("players").stream()
                         .filter(s -> s.startsWith(prefix))
                         .collect(Collectors.toList());
             } else if (sub.equals("clip")) {
@@ -63,12 +65,12 @@ public final class ReplayTabCompleter implements TabCompleter {
             }
         }
 
-        return List.of();
+        return Coll.listOf();
     }
 
     private List<String> listFlashbackFiles(String prefix) {
         List<String> results = new ArrayList<>();
-        for (Path dir : List.of(replaysDir, clipsDir)) {
+        for (Path dir : Coll.listOf(replaysDir, clipsDir)) {
             try (Stream<Path> stream = Files.list(dir)) {
                 stream.map(p -> p.getFileName().toString())
                         .filter(name -> name.endsWith(".flashback") && name.toLowerCase().startsWith(prefix.toLowerCase()))

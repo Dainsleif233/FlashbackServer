@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.record;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.format.ReplayAction;
 
 import java.nio.file.Path;
@@ -33,7 +35,7 @@ public final class FlashbackRecorder {
     private boolean stopped = false;
 
     /** Initial-state snapshot actions; set once before stop() via setSnapshot(). */
-    private List<ReplayAction> snapshot = List.of();
+    private List<ReplayAction> snapshot = Coll.listOf();
 
     public FlashbackRecorder(Path output, String playerName, int protocolVersion, int dataVersion) {
         this(output, playerName, protocolVersion, dataVersion, 6000);
@@ -59,7 +61,7 @@ public final class FlashbackRecorder {
     public void setSnapshot(List<ReplayAction> snapshot) {
         lock.lock();
         try {
-            this.snapshot = List.copyOf(snapshot);
+            this.snapshot = Coll.copyOf(snapshot);
         } finally {
             lock.unlock();
         }
@@ -156,7 +158,7 @@ public final class FlashbackRecorder {
 
         if (allChunks.isEmpty()) {
             // No ticks at all — write a single empty chunk with the snapshot.
-            chunks.add(new ReplayFiles.Chunk(snapshotCopy, List.of(), 0, true));
+            chunks.add(new ReplayFiles.Chunk(snapshotCopy, Coll.listOf(), 0, true));
         } else {
             for (int i = 0; i < allChunks.size(); i++) {
                 List<ReplayAction> stream = allChunks.get(i);
@@ -164,7 +166,7 @@ public final class FlashbackRecorder {
                 if (i == 0) {
                     chunks.add(new ReplayFiles.Chunk(snapshotCopy, stream, ticks, true));
                 } else {
-                    chunks.add(new ReplayFiles.Chunk(List.of(), stream, ticks, false));
+                    chunks.add(new ReplayFiles.Chunk(Coll.listOf(), stream, ticks, false));
                 }
             }
         }

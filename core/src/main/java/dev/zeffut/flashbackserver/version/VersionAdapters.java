@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.version;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import org.bukkit.Bukkit;
 
 import java.util.Map;
@@ -23,7 +25,8 @@ public final class VersionAdapters {
     private static final Logger LOG = Logger.getLogger(VersionAdapters.class.getName());
 
     /** Minecraft version → adapter FQN (each shaded in from its {@code :nms:vX} module). */
-    private static final Map<String, String> ADAPTERS_BY_VERSION = Map.of(
+    private static final Map<String, String> ADAPTERS_BY_VERSION = Coll.mapOf(
+        "1.16.1",  "dev.zeffut.flashbackserver.version.v1_16_1.V1_16_1Adapter",
         "1.21.5",  "dev.zeffut.flashbackserver.version.v1_21_5.V1_21_5Adapter",
         "1.21.6",  "dev.zeffut.flashbackserver.version.v1_21_6.V1_21_6Adapter",
         "1.21.7",  "dev.zeffut.flashbackserver.version.v1_21_7.V1_21_7Adapter",
@@ -36,7 +39,7 @@ public final class VersionAdapters {
 
     /** Adapter used when the running version isn't in the table (newest known). */
     private static final String FALLBACK_FQN =
-        "dev.zeffut.flashbackserver.version.v1_21_11.V1_21_11Adapter";
+        "dev.zeffut.flashbackserver.version.v26_2.V26_2Adapter";
 
     /** Returns the {@link VersionAdapter} for the running Minecraft version. */
     public static VersionAdapter current() {

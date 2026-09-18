@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.record;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.capture.PacketCapture;
 import dev.zeffut.flashbackserver.capture.PacketSink;
 import dev.zeffut.flashbackserver.platform.PlatformScheduler;
@@ -25,8 +27,28 @@ public final class RecordingManager implements Listener {
     private final Path outputDir;
     private final Telemetry telemetry;
     private final ConcurrentHashMap<UUID, Active> active = new ConcurrentHashMap<>();
-    private record Active(FlashbackRecorder recorder, TickClock clock, Path output, PacketSink sink,
-                          EntityPositionTracker positions) {}
+    private static final class Active {
+        private final FlashbackRecorder recorder;
+        private final TickClock clock;
+        private final Path output;
+        private final PacketSink sink;
+        private final EntityPositionTracker positions;
+
+        Active(FlashbackRecorder recorder, TickClock clock, Path output, PacketSink sink,
+               EntityPositionTracker positions) {
+            this.recorder = recorder;
+            this.clock = clock;
+            this.output = output;
+            this.sink = sink;
+            this.positions = positions;
+        }
+
+        FlashbackRecorder recorder() { return recorder; }
+        TickClock clock() { return clock; }
+        Path output() { return output; }
+        PacketSink sink() { return sink; }
+        EntityPositionTracker positions() { return positions; }
+    }
 
     public RecordingManager(Plugin plugin, Path outputDir, Telemetry telemetry) {
         this.plugin = plugin;
@@ -38,7 +60,7 @@ public final class RecordingManager implements Listener {
         UUID id = player.getUniqueId();
         if (active.containsKey(id)) return false;
         Path out = outputDir.resolve(player.getName() + "-" + id + ".flashback");
-        var adapter = VersionAdapters.current();
+        dev.zeffut.flashbackserver.version.VersionAdapter adapter = VersionAdapters.current();
         FlashbackRecorder recorder = new FlashbackRecorder(out, player.getName(),
             adapter.protocolVersion(), adapter.dataVersion());
         TickClock clock = new TickClock(plugin, player);
@@ -72,23 +94,22 @@ public final class RecordingManager implements Listener {
             recorder.onTick();
         });
 
-        // Build the initial-state snapshot on the player's region thread (Folia) / main thread (Paper).
-        // The capture can run immediately; the snapshot just needs to be set before stop() writes.
-        player.getScheduler().run(plugin, t -> {
+        // Build the initial-state snapshot on the player's region thread (Folia) / main thread (Paper 1.16.1).
+        PlatformScheduler.runForEntity(plugin, player, () -> {
             try {
                 recorder.setSnapshot(SnapshotBuilder.build(player));
             } catch (Exception e) {
                 plugin.getLogger().severe("Snapshot build failed for " + player.getName()
                         + " — this recording will NOT be renderable: " + e.getMessage());
             }
-        }, null);
+        });
 
         return true;
     }
 
     public CompletableFuture<Path> stop(Player player) {
         Active a = active.remove(player.getUniqueId());
-        var future = new CompletableFuture<Path>();
+        CompletableFuture<Path> future = new CompletableFuture<Path>();
         if (a == null) { future.complete(null); return future; }
         PacketCapture.ejectRaw(player, a.sink());
         a.clock().stop();
@@ -98,11 +119,11 @@ public final class RecordingManager implements Listener {
                 plugin.getLogger().info("Saved replay: " + a.output());
                 long fileBytes = -1;
                 try { fileBytes = Files.size(a.output()); } catch (Exception ignored) {}
-                telemetry.capture("recording_saved", Map.of("file_bytes", fileBytes));
+                telemetry.capture("recording_saved", Coll.mapOf("file_bytes", fileBytes));
                 future.complete(a.output());
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to write replay: " + e.getMessage());
-                telemetry.capture("recording_failed", Map.of("reason_class", e.getClass().getSimpleName()));
+                telemetry.capture("recording_failed", Coll.mapOf("reason_class", e.getClass().getSimpleName()));
                 future.completeExceptionally(e);
             }
         });

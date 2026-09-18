@@ -52,7 +52,7 @@ public final class FlashbackContainer {
 
         public Set<String> entryNames() {
             Set<String> names = new LinkedHashSet<>();
-            var e = zip.entries();
+            java.util.Enumeration<? extends ZipEntry> e = zip.entries();
             while (e.hasMoreElements()) names.add(e.nextElement().getName());
             return names;
         }
@@ -66,7 +66,18 @@ public final class FlashbackContainer {
         private byte[] read(String name) throws IOException {
             ZipEntry entry = zip.getEntry(name);
             if (entry == null) throw new IOException("Missing entry: " + name);
-            try (InputStream in = zip.getInputStream(entry)) { return in.readAllBytes(); }
+            InputStream in = zip.getInputStream(entry);
+            try {
+                java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                byte[] chunk = new byte[8192];
+                int n;
+                while ((n = in.read(chunk)) != -1) {
+                    buffer.write(chunk, 0, n);
+                }
+                return buffer.toByteArray();
+            } finally {
+                in.close();
+            }
         }
 
         @Override public void close() throws IOException { zip.close(); }

@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.format;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -13,7 +15,24 @@ public final class FlashbackValidator {
      * container-level failure occurred (on an unreadable container they default to 0).
      * {@code problems} is an unmodifiable list.
      */
-    public record Report(boolean valid, List<String> problems, int totalTicks, int chunkCount) {}
+    public static final class Report {
+        private final boolean valid;
+        private final List<String> problems;
+        private final int totalTicks;
+        private final int chunkCount;
+
+        public Report(boolean valid, List<String> problems, int totalTicks, int chunkCount) {
+            this.valid = valid;
+            this.problems = problems;
+            this.totalTicks = totalTicks;
+            this.chunkCount = chunkCount;
+        }
+
+        public boolean valid() { return valid; }
+        public List<String> problems() { return problems; }
+        public int totalTicks() { return totalTicks; }
+        public int chunkCount() { return chunkCount; }
+    }
 
     /** Identifier for the Flashback synthetic action that spawns the local player. */
     private static final String ID_CREATE_LOCAL_PLAYER = "flashback:action/create_local_player";
@@ -29,11 +48,11 @@ public final class FlashbackValidator {
         int totalTicks = 0;
         int chunkCount = 0;
 
-        try (var reader = FlashbackContainer.open(file)) {
+        try (FlashbackContainer.Reader reader = FlashbackContainer.open(file)) {
             Set<String> entries = reader.entryNames();
             if (!entries.contains("metadata.json")) {
                 problems.add("missing metadata.json");
-                return new Report(false, List.copyOf(problems), 0, 0);
+                return new Report(false, Coll.copyOf(problems), 0, 0);
             }
 
             FlashbackMeta meta = reader.readMetadata();
@@ -41,7 +60,7 @@ public final class FlashbackValidator {
             chunkCount = meta.chunks.size();
 
             long tickSum = 0;
-            for (var entry : meta.chunks.entrySet()) {
+            for (Map.Entry<String, ChunkMeta> entry : meta.chunks.entrySet()) {
                 String name = entry.getKey();
                 if (!entries.contains(name)) {
                     problems.add("declared chunk not present: " + name);
@@ -67,7 +86,7 @@ public final class FlashbackValidator {
             problems.add("container unreadable: " + e.getMessage());
         }
 
-        return new Report(problems.isEmpty(), List.copyOf(problems), totalTicks, chunkCount);
+        return new Report(problems.isEmpty(), Coll.copyOf(problems), totalTicks, chunkCount);
     }
 
     /**
@@ -105,11 +124,11 @@ public final class FlashbackValidator {
         List<String> problems = new ArrayList<>(structural.problems());
 
         // Only proceed with snapshot checks if the container was at least partially readable.
-        try (var reader = FlashbackContainer.open(file)) {
+        try (FlashbackContainer.Reader reader = FlashbackContainer.open(file)) {
             FlashbackMeta meta = reader.readMetadata();
             if (meta.chunks.isEmpty()) {
                 problems.add("no chunks declared — cannot check snapshot");
-                return new Report(false, List.copyOf(problems), structural.totalTicks(), structural.chunkCount());
+                return new Report(false, Coll.copyOf(problems), structural.totalTicks(), structural.chunkCount());
             }
 
             // Pick the first declared chunk by insertion order.
@@ -184,7 +203,7 @@ public final class FlashbackValidator {
         // Strategy: rebuild valid from whether problems contain only info-level entries,
         // i.e. problems that start with "renderable check limited:".
         boolean valid = problems.stream().noneMatch(p -> !p.startsWith("renderable check limited:"));
-        return new Report(valid, List.copyOf(problems), structural.totalTicks(), structural.chunkCount());
+        return new Report(valid, Coll.copyOf(problems), structural.totalTicks(), structural.chunkCount());
     }
 
     /**

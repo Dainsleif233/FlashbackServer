@@ -4,12 +4,23 @@ import java.io.*;
 import java.util.*;
 
 public final class ChunkReader {
-    public record Result(List<ReplayAction> snapshotActions, List<ReplayAction> streamActions) {}
+    public static final class Result {
+        private final List<ReplayAction> snapshotActions;
+        private final List<ReplayAction> streamActions;
+
+        public Result(List<ReplayAction> snapshotActions, List<ReplayAction> streamActions) {
+            this.snapshotActions = snapshotActions;
+            this.streamActions = streamActions;
+        }
+
+        public List<ReplayAction> snapshotActions() { return snapshotActions; }
+        public List<ReplayAction> streamActions() { return streamActions; }
+    }
 
     private ChunkReader() {}
 
     public static Result read(byte[] bytes) throws IOException {
-        var in = new DataInputStream(new ByteArrayInputStream(bytes));
+        DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
 
         int magic = in.readInt();
         if (magic != ChunkWriter.MAGIC) throw new IOException("Bad magic: " + Integer.toHexString(magic));
@@ -53,7 +64,7 @@ public final class ChunkReader {
      * Format: varint id + int32 size + payload (repeated).
      */
     private static List<ReplayAction> parseActions(Map<Integer, String> registry, byte[] bytes) throws IOException {
-        var in = new DataInputStream(new ByteArrayInputStream(bytes));
+        DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
         List<ReplayAction> actions = new ArrayList<>();
         while (in.available() > 0) {
             int id = VarCodec.readVarInt(in);

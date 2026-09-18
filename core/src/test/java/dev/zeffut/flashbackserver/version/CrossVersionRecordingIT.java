@@ -25,6 +25,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class CrossVersionRecordingIT {
 
     @Test
+    void selectsThe1_16_1AdapterOnA1_16_1Server(@TempDir Path dir) throws Exception {
+        assertAdapterSelected(dir, 25601, "1.16.1", "V1_16_1Adapter");
+    }
+
+    @Test
     void selectsThe1_21_5AdapterOnA1_21_5Server(@TempDir Path dir) throws Exception {
         assertAdapterSelected(dir, 25615, "1.21.5", "V1_21_5Adapter");
     }

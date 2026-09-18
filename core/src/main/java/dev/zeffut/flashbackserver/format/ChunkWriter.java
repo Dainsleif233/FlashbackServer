@@ -21,8 +21,8 @@ public final class ChunkWriter {
         for (ReplayAction a : snapshotActions) registry.computeIfAbsent(a.identifier(), k -> registry.size());
         for (ReplayAction a : streamActions)   registry.computeIfAbsent(a.identifier(), k -> registry.size());
 
-        var out = new ByteArrayOutputStream();
-        var dos = new DataOutputStream(out);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(out);
 
         // 2. Magic + registry
         dos.writeInt(MAGIC);
@@ -52,8 +52,8 @@ public final class ChunkWriter {
      * Each record: varint registryId + int32 payloadLen + payload.
      */
     private static byte[] encodeActions(Map<String, Integer> registry, List<ReplayAction> actions) throws IOException {
-        var buf = new ByteArrayOutputStream();
-        var dos = new DataOutputStream(buf);
+        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(buf);
         for (ReplayAction a : actions) {
             VarCodec.writeVarInt(dos, registry.get(a.identifier()));
             dos.writeInt(a.payload().length);

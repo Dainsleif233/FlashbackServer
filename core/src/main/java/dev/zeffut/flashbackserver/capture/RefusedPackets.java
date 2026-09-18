@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.capture;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import java.util.Set;
 
 /**
@@ -31,7 +33,7 @@ public final class RefusedPackets {
 
     private RefusedPackets() {}
 
-    private static final Set<String> REFUSED = Set.of(
+    private static final Set<String> REFUSED = Coll.setOf(
             "ClientboundAwardStatsPacket",
             "ClientboundBlockChangedAckPacket",
             "ClientboundChunkBatchFinishedPacket",

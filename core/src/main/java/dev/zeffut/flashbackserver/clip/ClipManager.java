@@ -1,5 +1,7 @@
 package dev.zeffut.flashbackserver.clip;
 
+import dev.zeffut.flashbackserver.util.Coll;
+
 import dev.zeffut.flashbackserver.capture.PacketCapture;
 import dev.zeffut.flashbackserver.capture.PacketSink;
 import dev.zeffut.flashbackserver.format.ReplayAction;
@@ -35,12 +37,28 @@ public final class ClipManager implements Listener {
     private final ConcurrentHashMap<UUID, Armed> armed = new ConcurrentHashMap<>();
     private final AtomicInteger clipCounter = new AtomicInteger();
 
-    private record Armed(
-            ClipBuffer buffer,
-            TickClock clock,
-            PacketSink sink,
-            AtomicReference<List<ReplayAction>> cachedConfig,
-            AtomicBoolean keyframeBuilding) {}
+    private static final class Armed {
+        private final ClipBuffer buffer;
+        private final TickClock clock;
+        private final PacketSink sink;
+        private final AtomicReference<List<ReplayAction>> cachedConfig;
+        private final AtomicBoolean keyframeBuilding;
+
+        Armed(ClipBuffer buffer, TickClock clock, PacketSink sink,
+              AtomicReference<List<ReplayAction>> cachedConfig, AtomicBoolean keyframeBuilding) {
+            this.buffer = buffer;
+            this.clock = clock;
+            this.sink = sink;
+            this.cachedConfig = cachedConfig;
+            this.keyframeBuilding = keyframeBuilding;
+        }
+
+        ClipBuffer buffer() { return buffer; }
+        TickClock clock() { return clock; }
+        PacketSink sink() { return sink; }
+        AtomicReference<List<ReplayAction>> cachedConfig() { return cachedConfig; }
+        AtomicBoolean keyframeBuilding() { return keyframeBuilding; }
+    }
 
     public ClipManager(Plugin plugin, Path outputDir, int windowSeconds, Telemetry telemetry) {
         this.plugin = plugin;
@@ -66,13 +84,13 @@ public final class ClipManager implements Listener {
         Runnable tickCallback = () -> {
             buffer.onTick();
             if (buffer.needsKeyframe() && keyframeBuilding.compareAndSet(false, true)) {
-                player.getScheduler().run(plugin, t -> {
+                PlatformScheduler.runForEntity(plugin, player, () -> {
                     try {
                         buffer.setKeyframe(SnapshotBuilder.dynamicActions(player));
                     } finally {
                         keyframeBuilding.set(false);
                     }
-                }, null);
+                });
             }
         };
 
@@ -82,8 +100,8 @@ public final class ClipManager implements Listener {
         PacketCapture.injectRaw(player, sink);
         clock.start(tickCallback);
 
-        // Seed config + first keyframe on the player's region thread.
-        player.getScheduler().run(plugin, t -> {
+        // Seed config + first keyframe on the player's region thread (or main thread on 1.16.1).
+        PlatformScheduler.runForEntity(plugin, player, () -> {
             try {
                 cachedConfig.set(SnapshotBuilder.configActions(player));
                 buffer.setKeyframe(SnapshotBuilder.dynamicActions(player));
@@ -91,7 +109,7 @@ public final class ClipManager implements Listener {
                 plugin.getLogger().warning("SnapshotBuilder failed for " + player.getName()
                         + " — clip will have empty snapshot: " + e.getMessage());
             }
-        }, null);
+        });
 
         return true;
     }
@@ -132,17 +150,17 @@ public final class ClipManager implements Listener {
         Path out = outputDir.resolve(name + "-clip-" + clipCounter.incrementAndGet() + ".flashback");
         PlatformScheduler.async(plugin, () -> {
             try {
-                var adapter = VersionAdapters.current();
+                dev.zeffut.flashbackserver.version.VersionAdapter adapter = VersionAdapters.current();
                 ReplayFiles.write(out, name, adapter.protocolVersion(), adapter.dataVersion(),
                     snapshot, stream, ticks);
                 plugin.getLogger().info("Saved clip: " + out);
                 long fileBytes = -1;
                 try { fileBytes = Files.size(out); } catch (Exception ignored) {}
-                telemetry.capture("clip_saved", Map.of("file_bytes", fileBytes));
+                telemetry.capture("clip_saved", Coll.mapOf("file_bytes", fileBytes));
                 future.complete(out);
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to write clip: " + e.getMessage());
-                telemetry.capture("clip_failed", Map.of("reason_class", e.getClass().getSimpleName()));
+                telemetry.capture("clip_failed", Coll.mapOf("reason_class", e.getClass().getSimpleName()));
                 future.completeExceptionally(e);
             }
         });

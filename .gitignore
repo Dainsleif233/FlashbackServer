@@ -42,3 +42,6 @@ spike-synth.log
 f1-spike.log
 spike-mv2.log
 /io/
+
+# Paper 1.16.1 paperclip / patched NMS compile inputs (download + extract locally)
+nms/v1_16_1/libs/

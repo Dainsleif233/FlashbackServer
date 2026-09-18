@@ -17,7 +17,7 @@ public final class ClipDeathListener implements Listener {
     @EventHandler
     public void onDeath(PlayerDeathEvent event) {
         if (!enabled) return;
-        var player = event.getEntity(); // PlayerDeathEvent#getEntity() returns the Player
+        org.bukkit.entity.Player player = event.getEntity();
         if (clips.isArmed(player)) clips.saveClip(player);
     }
 }
