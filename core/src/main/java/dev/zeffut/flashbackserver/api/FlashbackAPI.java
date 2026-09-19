@@ -2,12 +2,14 @@ package dev.zeffut.flashbackserver.api;
 
 import dev.zeffut.flashbackserver.format.FlashbackValidator;
 import dev.zeffut.flashbackserver.verify.ReplayVerifier;
+import dev.zeffut.flashbackserver.version.VersionAdapter;
 import dev.zeffut.flashbackserver.version.VersionAdapters;
 import org.bukkit.plugin.Plugin;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Stable entry point for other plugins integrating with FlashbackServer.
@@ -95,10 +97,14 @@ public final class FlashbackAPI {
      * <p>Layers:
      * <ol>
      *   <li><b>Format / container</b> ({@code FlashbackValidator}) — always runs.</li>
-     *   <li><b>Packet decode</b> against the active server version adapter — runs when the
-     *       adapter is available (normal production jar). If the adapter cannot be loaded
-     *       (partial classpath, unit tests), decode is skipped and {@link ReplayCheckResult#decodeClean()}
-     *       is {@code null}; format alone decides {@link ReplayCheckResult#valid()}.</li>
+     *   <li><b>Packet decode</b> against the active server version adapter.
+     *       Decode is <em>skipped</em> only when the adapter is unavailable (class not shaded /
+     *       partial classpath — {@link VersionAdapters#isUnavailable}). In that case
+     *       {@link ReplayCheckResult#decodeClean()} is {@code null} and format alone decides
+     *       {@link ReplayCheckResult#valid()}. A {@code null} adapter, any other lookup failure,
+     *       or any decoder failure (corrupt stream, linkage/programming error, unexpected
+     *       exception) marks the result <b>invalid</b> ({@code decodeClean == false}).
+     *       {@link VirtualMachineError} is rethrown (not swallowed).</li>
      * </ol>
      *
      * <p>Unlike {@code /replay verify}, this accepts <em>any</em> path, not only files under
@@ -113,6 +119,14 @@ public final class FlashbackAPI {
      * @throws NoClassDefFoundError if the FlashbackServer jar is not installed
      */
     public static ReplayCheckResult verify(Path file) {
+        return verify(file, VersionAdapters::current);
+    }
+
+    /**
+     * Same as {@link #verify(Path)} but with an injectable adapter source (unit tests).
+     * Package-private — not part of the public consumer contract.
+     */
+    static ReplayCheckResult verify(Path file, Supplier<VersionAdapter> adapterSupplier) {
         if (file == null) {
             throw new IllegalArgumentException("file must not be null");
         }
@@ -122,20 +136,50 @@ public final class FlashbackAPI {
         int decodeErrors = 0;
         int decoded = 0;
         Boolean decodeClean = null;
+        boolean decodeSkipped = false;
+
+        VersionAdapter adapter;
         try {
-            ReplayVerifier.Result decode =
-                    ReplayVerifier.verify(file, VersionAdapters.current());
-            decodeClean = decode.errors() == 0;
-            decoded = decode.decoded();
-            decodeErrors = decode.errors();
-            problems.addAll(decode.problems());
+            adapter = adapterSupplier.get();
         } catch (Throwable t) {
-            // Adapter missing or unusable — format check still applies.
-            problems.add("Packet decode skipped: " + t.getClass().getSimpleName()
-                    + ": " + t.getMessage());
+            rethrowIfFatal(t);
+            adapter = null;
+            if (VersionAdapters.isUnavailable(t)) {
+                decodeSkipped = true;
+                decodeClean = null;
+                problems.add("Packet decode skipped (version adapter unavailable): "
+                        + t.getClass().getSimpleName() + ": " + t.getMessage());
+            } else {
+                decodeClean = false;
+                decodeErrors++;
+                problems.add("Version adapter failed: "
+                        + t.getClass().getSimpleName() + ": " + t.getMessage());
+            }
         }
-        int errorCount = formatErrors + decodeErrors;
-        boolean valid = format.valid() && (decodeClean == null || decodeClean);
+
+        if (adapter != null) {
+            try {
+                ReplayVerifier.Result decode = ReplayVerifier.verify(file, adapter);
+                decodeClean = decode.errors() == 0;
+                decoded = decode.decoded();
+                decodeErrors += decode.errors();
+                problems.addAll(decode.problems());
+            } catch (Throwable t) {
+                rethrowIfFatal(t);
+                // Unexpected decoder failure must not look like a clean skip.
+                decodeClean = false;
+                decodeErrors++;
+                problems.add("Packet decode failed: "
+                        + t.getClass().getSimpleName() + ": " + t.getMessage());
+            }
+        } else if (!decodeSkipped) {
+            // Supplier returned null without throwing — not a supported skip path.
+            decodeClean = false;
+            decodeErrors++;
+            problems.add("Version adapter supplier returned null");
+        }
+
+        boolean valid = format.valid() && (decodeSkipped || Boolean.TRUE.equals(decodeClean));
         return new ReplayCheckResult(
                 valid,
                 format.valid(),
@@ -143,8 +187,26 @@ public final class FlashbackAPI {
                 format.totalTicks(),
                 format.chunkCount(),
                 decoded,
-                errorCount,
+                formatErrors + decodeErrors,
                 problems);
+    }
+
+    /**
+     * Fail-closed verification must not swallow fatal VM errors (OOM, stack overflow, etc.).
+     * Other {@link Error}s are recorded as invalid results rather than rethrown.
+     */
+    private static void rethrowIfFatal(Throwable t) {
+        if (t instanceof VirtualMachineError) throw (VirtualMachineError) t;
+    }
+
+    /**
+     * Only used for exceptions from adapter <em>lookup</em>. Decode failures always fail closed
+     * and must not be classified as unavailable.
+     *
+     * @see VersionAdapters#isUnavailable(Throwable)
+     */
+    static boolean isAdapterUnavailable(Throwable t) {
+        return VersionAdapters.isUnavailable(t);
     }
 
     /**

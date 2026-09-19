@@ -182,6 +182,8 @@ methods may be added in future releases.
 | `ClipService` | `saveClip(Player, Path)` | custom file path incl. name; same readiness rules as above |
 | `FlashbackAPI` | `verify(Path)` | format + packet-decode check on **any** `.flashback` path → `ReplayCheckResult` |
 
+**`verify` semantics:** format/container checks always run. Packet decode is **skipped only** when the version adapter is unavailable (class not shaded / partial classpath) — then `decodeClean` is `null` and format alone decides `ok()`. Any other decoder failure (corrupt stream, unexpected exception, adapter instantiate error that is not a missing class) sets `decodeClean=false` and makes `ok()` false.
+
 **Custom save paths (API):**
 - `null` → default location under `replays/` or `clips/`
 - absolute `Path` → written as-is (parent directories created)
